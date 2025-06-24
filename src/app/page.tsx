@@ -297,7 +297,7 @@ export default function Home() {
                 }}
                 className="flex items-center cursor-pointer gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm transition-colors"
               >
-                <Plus size={16} /> Add Custom
+                <Plus size={16} /> Add Custom Firmware
               </button>
             </div>
           </div>
@@ -454,87 +454,111 @@ export default function Home() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-gray-700">
               <div className="border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Upload Custom Firmware</h2>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  {flashFromUpload ? "Flash Custom Firmware" : "Upload Custom Firmware"}
+                </h2>
                 <button
                   onClick={() => {
                     setShowUploadDialog(false);
                     setOutput("");
+                    setFlashFromUpload(false);
                   }}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer"
-                  disabled={isUploading} // Disable close while uploading/flashing
+                  disabled={isUploading || isFlashing}
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               <div className="p-6 text-gray-900 dark:text-white">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Firmware File (.bin)
-                  </label>
-                  <div className="flex items-center">
-                    <label className={`flex items-center px-4 py-2 border rounded-md cursor-pointer transition-colors ${isUploading
-                      ? 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                      : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white'
-                      }`}>
-                      <Upload className="h-5 w-5 mr-2" />
-                      {selectedFile ? selectedFile.name : "Choose File"}
+                {!flashFromUpload ? (
+                  // Step 1: Upload form
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Firmware File (.bin)
+                      </label>
+                      <div className="flex items-center">
+                        <label className={`flex items-center px-4 py-2 border rounded-md cursor-pointer transition-colors ${isUploading
+                          ? 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                          : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white'
+                          }`}>
+                          <Upload className="h-5 w-5 mr-2" />
+                          {selectedFile ? selectedFile.name : "Choose File"}
+                          <input
+                            type="file"
+                            accept=".bin"
+                            onChange={(e) => !isUploading && handleFileChange(e.target.files?.[0] || null)}
+                            className="hidden"
+                            disabled={isUploading}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Firmware Name
+                      </label>
                       <input
-                        type="file"
-                        accept=".bin"
-                        onChange={(e) => !isUploading && handleFileChange(e.target.files?.[0] || null)}
-                        className="hidden"
+                        type="text"
+                        value={newFirmwareName}
+                        onChange={(e) => setNewFirmwareName(e.target.value)}
+                        placeholder="e.g., MyCustomFirmware"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                         disabled={isUploading}
                       />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Firmware Name
-                  </label>
-                  <input
-                    type="text"
-                    value={newFirmwareName}
-                    onChange={(e) => setNewFirmwareName(e.target.value)}
-                    placeholder="e.g., MyCustomFirmware"
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    disabled={isUploading}
-                  />
-                </div>
-                {isFirmwareExists && (
-                  <div className="my-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                    <div className="flex items-center space-x-2">
-                      <p className="pl-2 text-red-800 dark:text-red-200 text-sm">
-                        A firmware with this name already exists. Adding it again will overwrite the existing firmware.
-                      </p>
                     </div>
-                  </div>
+                    {isFirmwareExists && (
+                      <div className="my-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                        <div className="flex items-center space-x-2">
+                          <p className="pl-2 text-red-800 dark:text-red-200 text-sm">
+                            A firmware with this name already exists. Adding it again will overwrite the existing firmware.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  // Step 2: Flash options
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Selected Firmware
+                      </label>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center">
+                          <Cpu className="h-5 w-5 mr-2 text-blue-500 dark:text-blue-400" />
+                          <span className="font-medium">{newFirmwareName}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Select Serial Port
+                      </label>
+                      <div className="flex">
+                        <select
+                          onChange={e => setSelectedPort(e.target.value)}
+                          value={selectedPort}
+                          className="flex-grow border border-gray-300 dark:border-gray-600 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-black-900 dark:text-black"
+                          disabled={isFlashing}
+                        >
+                          <option value="">-- Select Port --</option>
+                          {ports.map((p) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                        <button
+                          onClick={refreshPorts}
+                          className="bg-gray-100 dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-md px-3 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          disabled={isFlashing || isRefreshing}
+                        >
+                          <RefreshCw className={`h-5 w-5 text-gray-600 dark:text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </>
                 )}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Select Serial Port
-                  </label>
-                  <div className="flex">
-                    <select
-                      onChange={e => setSelectedPort(e.target.value)}
-                      value={selectedPort}
-                      className="flex-grow border border-gray-300 dark:border-gray-600 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-black-900 dark:text-black"
-                      disabled={isUploading}
-                    >
-                      <option value="">-- Select Port --</option>
-                      {ports.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                    <button
-                      onClick={refreshPorts}
-                      className="bg-gray-100 dark:bg-gray-700 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-md px-3 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                      disabled={isUploading || isRefreshing}
-                    >
-                      <RefreshCw className={`h-5 w-5 text-gray-600 dark:text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    </button>
-                  </div>
-                </div>
 
                 {output && (
                   <div className={`border rounded-md p-3 mt-4 ${getStatusColor()} transition-colors duration-200`}>
@@ -548,72 +572,84 @@ export default function Home() {
                 )}
 
                 <div className="flex justify-end mt-6">
-                  <div className="flex space-x-3 items-end">
-                    <button
-                      onClick={() => {
-                        setShowUploadDialog(false);
-                        setOutput("");
-                      }}
-                      className="px-4 py-2 border cursor-pointer border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      disabled={isUploading || isFlashing}
-                    >
-                      Cancel
-                    </button>
-
-                    <button
-                      onClick={async () => {
-                        try {
-                          setFlashFromUpload(false);
-                          await handleFileUpload();
+                  {!flashFromUpload ? (
+                    // Step 1 buttons
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => {
                           setShowUploadDialog(false);
-                        } catch(err) {
-                          console.warn(err);
-                        }
-                      }}
-                      disabled={isUploading || !selectedFile || !newFirmwareName || isFlashing}
-                      className={`px-4 py-2 rounded-md flex items-center transition-colors ${!selectedFile || !newFirmwareName || isFlashing
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
-                        } text-white`}
-                    >
-                      {isUploading && !flashFromUpload ? (
-                        <>
-                          <RefreshCw className="animate-spin h-4 w-4 mr-2" />
-                          Adding...
-                        </>
-                      ) : (
-                        'Add'
-                      )}
-                    </button>
+                          setOutput("");
+                        }}
+                        className="px-4 py-2 border cursor-pointer border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        disabled={isUploading}
+                      >
+                        Cancel
+                      </button>
 
-                    <button
-                      onClick={async () => {
-                        try {
-                          setFlashFromUpload(true);
-                          const firmwareName = await handleFileUpload();
-                          if (firmwareName && selectedPort) {
-                            await handleFlash(firmwareName);
+                      <button
+                        onClick={async () => {
+                          try {
+                            await handleFileUpload();
+                            setFlashFromUpload(true);
+                          } catch (err) {
+                            console.warn(err);
                           }
-                        } catch (err) {
-                          console.warn(err);
-                        }
-                      }}
-                      disabled={isUploading || !selectedFile || !newFirmwareName || !selectedPort || isFlashing}
-                      className={`px-4 py-2 rounded-md flex items-center transition-colors ${!selectedFile || !newFirmwareName || !selectedPort || isFlashing
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-green-600 hover:bg-green-700 cursor-pointer'
-                        } text-white`}
-                    >
-                      {isFlashing ? (
-                        <>
-                          <RefreshCw className="animate-spin h-4 w-4 mr-2" />
-                          Flashing...
-                        </>
-                      ) : (
-                        'Flash'
-                      )}
-                    </button>
-                  </div>
+                        }}
+                        disabled={isUploading || !selectedFile || !newFirmwareName}
+                        className={`px-4 py-2 rounded-md flex items-center transition-colors ${!selectedFile || !newFirmwareName
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                          } text-white`}
+                      >
+                        {isUploading ? (
+                          <>
+                            <RefreshCw className="animate-spin h-4 w-4 mr-2" />
+                            Uploading...
+                          </>
+                        ) : (
+                          'Upload & Continue to Flash'
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    // Step 2 buttons
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => {
+                          setShowUploadDialog(false);
+                          setOutput("");
+                        }}
+                        className="px-4 py-2 border cursor-pointer border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        disabled={isUploading}
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          try {
+                            await handleFlash(`${newFirmwareName}.bin`);
+                          } catch (err) {
+                            console.warn(err);
+                          }
+                        }}
+                        disabled={isFlashing || !selectedPort}
+                        className={`px-4 py-2 rounded-md flex items-center transition-colors ${!selectedPort || isFlashing
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+                          } text-white`}
+                      >
+                        {isFlashing ? (
+                          <>
+                            <RefreshCw className="animate-spin h-4 w-4 mr-2" />
+                            Flashing...
+                          </>
+                        ) : (
+                          'Flash Firmware'
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

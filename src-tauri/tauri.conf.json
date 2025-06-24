@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",                     
-        "title": "NPG Lite Flasher",
+        "title": "NPG Lite Flasher (v0.2.0)",
         "width": 900,
         "height": 700,
         "resizable": true,
