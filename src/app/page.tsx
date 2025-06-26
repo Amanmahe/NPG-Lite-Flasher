@@ -28,7 +28,7 @@ export default function Home() {
   const [downloadedFirmwares, setDownloadedFirmwares] = useState<string[]>([]);
   const [flashFromUpload, setFlashFromUpload] = useState(false);
   const [isFirmwareExists, setIsFirmwareExists] = useState(false);
-
+  const [isFlashed, setIsFlashed] = useState(false);
   // Poll for serial ports at regular intervals
   useEffect(() => {
     const pollInterval = setInterval(() => {
@@ -115,6 +115,7 @@ export default function Home() {
 
   const handleFirmwareTypeChange = (type: string) => {
     setFirmwareType(type);
+    setIsFlashed(false);
     if (type) {
       setShowPopover(true);
       setFlashStatus('');
@@ -161,10 +162,12 @@ export default function Home() {
       });
       setOutput(`Success: ${String(result)}`);
       setFlashStatus('success');
+      setIsFlashed(true);
     } catch (err) {
       console.error("Flash failed:", err);
       setOutput(`Error: ${String(err)}`);
       setFlashStatus('error');
+      setIsFlashed(false);
     } finally {
       setIsFlashing(false);
     }
@@ -372,6 +375,7 @@ export default function Home() {
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteFirmware(fw);
+                          setIsFlashed(false);
                         }}
                         className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1 transition-colors"
                         title="Delete firmware"
@@ -462,6 +466,7 @@ export default function Home() {
                     setShowUploadDialog(false);
                     setOutput("");
                     setFlashFromUpload(false);
+                    setIsFlashed(false);
                   }}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer"
                   disabled={isUploading || isFlashing}
@@ -540,7 +545,10 @@ export default function Home() {
                       </label>
                       <div className="flex">
                         <select
-                          onChange={e => setSelectedPort(e.target.value)}
+                          onChange={e => {
+                            setSelectedPort(e.target.value);
+                            setIsFlashed(false);
+                          }}
                           value={selectedPort}
                           className="flex-grow border border-gray-300 dark:border-gray-600 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-black-900 dark:text-black"
                           disabled={isFlashing}
@@ -604,10 +612,10 @@ export default function Home() {
                         {isUploading ? (
                           <>
                             <RefreshCw className="animate-spin h-4 w-4 mr-2" />
-                            Uploading...
+                            Adding...
                           </>
                         ) : (
-                          'Upload & Continue to Flash'
+                          'Add & Continue to Flash'
                         )}
                       </button>
                     </div>
@@ -622,7 +630,7 @@ export default function Home() {
                         className="px-4 py-2 border cursor-pointer border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         disabled={isUploading}
                       >
-                        Cancel
+                        Exit
                       </button>
 
                       <button
@@ -633,17 +641,22 @@ export default function Home() {
                             console.warn(err);
                           }
                         }}
-                        disabled={isFlashing || !selectedPort}
-                        className={`px-4 py-2 rounded-md flex items-center transition-colors ${!selectedPort || isFlashing
-                          ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-green-600 hover:bg-green-700 cursor-pointer'
-                          } text-white`}
+                        disabled={isFlashing || isFlashed || !selectedPort}
+                        className={`px-4 py-2 rounded-md flex items-center transition-colors ${
+                          !selectedPort || isFlashing
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : isFlashed
+                            ? 'bg-green-600 cursor-not-allowed'
+                            : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+                        } text-white`}
                       >
                         {isFlashing ? (
                           <>
                             <RefreshCw className="animate-spin h-4 w-4 mr-2" />
                             Flashing...
                           </>
+                        ) : isFlashed ? (
+                          'Flashed'
                         ) : (
                           'Flash Firmware'
                         )}
@@ -681,8 +694,10 @@ export default function Home() {
                   </label>
                   <div className="flex">
                     <select
-                      onChange={e => setSelectedPort(e.target.value)}
-                      value={selectedPort}
+                      onChange={e => {
+                        setSelectedPort(e.target.value);
+                        setIsFlashed(false);
+                      }} value={selectedPort}
                       className="flex-grow border border-gray-300 dark:border-gray-600 rounded-l-md p-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-black-900 dark:text-black"
                       disabled={isFlashing}
                     >
@@ -729,19 +744,24 @@ export default function Home() {
                         console.warn(err);
                       }
                     }}
-                    disabled={isFlashing}
-                    className={`px-4 py-2 rounded-md flex items-center transition-colors ${!selectedPort || isFlashing
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700 cursor-pointer'
-                      } text-white`}
+                    disabled={isFlashing ||isFlashed}
+                    className={`px-4 py-2 rounded-md flex items-center transition-colors ${
+                      !selectedPort || isFlashing
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : isFlashed
+                        ? 'bg-green-600 cursor-not-allowed'
+                        : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+                    } text-white`}
                   >
                     {isFlashing ? (
                       <>
                         <RefreshCw className="animate-spin h-4 w-4 mr-2" />
                         Flashing...
                       </>
+                    ) : isFlashed ? (
+                      'Flashed'
                     ) : (
-                      'Flash'
+                      'Flash Firmware'
                     )}
                   </button>
                 </div>
