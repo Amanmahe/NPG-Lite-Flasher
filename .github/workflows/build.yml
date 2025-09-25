@@ -1,4 +1,4 @@
-name: Build and Release NPG Lite Flasher  App
+name: Build and Release NPG Lite Flasher App
 
 on:
   push:
@@ -75,6 +75,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev build-essential pkg-config
+          # Additional dependencies for AppImage
+          sudo apt-get install -y file desktop-file-utils
+
       - name: Install Tauri CLI (locally)
         run: npm install @tauri-apps/cli
 
@@ -153,7 +156,6 @@ jobs:
           --keychain-profile "MAC_PASSWORD" \
           --wait
 
-
       - name: Staple Notarization Ticket
         if: runner.os == 'macOS'
         run: |
@@ -165,7 +167,6 @@ jobs:
         with:
           name: tauri-app-macos
           path: rebuilt-dmg/*.dmg
-
 
       - name: Upload Artifact for Windows
         if: runner.os == 'Windows'
@@ -187,6 +188,13 @@ jobs:
         with:
           name: tauri-app-linux-rpm
           path: src-tauri/target/release/bundle/rpm/*.rpm
+
+      - name: Upload Artifact for Linux (AppImage)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-app-linux-appimage
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
 
   release:
     needs: [build, check-version-and-tag]
@@ -233,7 +241,13 @@ jobs:
           name: tauri-app-linux-rpm
           path: src-tauri/target/release/bundle/rpm
 
-      # Create GitHub Release with only artifacts
+      - name: Download Linux Artifact (AppImage)
+        uses: actions/download-artifact@v4
+        with:
+          name: tauri-app-linux-appimage
+          path: src-tauri/target/release/bundle/appimage
+
+      # Create GitHub Release with all artifacts including AppImage
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -243,6 +257,7 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/appimage/*.AppImage
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
