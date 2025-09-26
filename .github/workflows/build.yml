@@ -155,6 +155,9 @@ jobs:
           WEBKIT_DISABLE_COMPOSITING_MODE: 1
           QT_QPA_PLATFORM: offscreen
         run: |
+          # Confirm NO_STRIP is set
+          echo "NO_STRIP environment variable value: $NO_STRIP"
+          
           # Suppress GTK warnings and use software rendering
           export G_MESSAGES_DEBUG=all
           export EGL_PLATFORM=surfaceless
