@@ -133,19 +133,24 @@ jobs:
             --team-id "$TEAM_ID" \
             --password "$APPLE_PASSWORD"
 
-      - name: Build Tauri App
+      - name: Build Tauri App (Linux)
+        if: runner.os == 'Linux'
         env:
-          # Linux-specific environment variables for AppImage build
-          NO_STRIP: ${{ runner.os == 'Linux' && 'true' || 'false' }}
-          DISPLAY: ${{ runner.os == 'Linux' && ':99' || '' }}
-          LIBGL_ALWAYS_SOFTWARE: ${{ runner.os == 'Linux' && '1' || '0' }}
+          NO_STRIP: true
+          DISPLAY: :99
+          LIBGL_ALWAYS_SOFTWARE: 1
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            echo "Building on Linux with EGL workaround"
-            # Test if Xvfb is working
-            xdpyinfo > /dev/null 2>&1 || echo "Xvfb may not be ready, continuing anyway..."
-          fi
+          # Test if Xvfb is working
+          xdpyinfo > /dev/null 2>&1 || echo "Xvfb may not be ready, continuing anyway..."
           npx tauri build
+
+      - name: Build Tauri App (macOS)
+        if: runner.os == 'macOS'
+        run: npx tauri build
+
+      - name: Build Tauri App (Windows)
+        if: runner.os == 'Windows'
+        run: npx tauri build
 
       - name: Stop Virtual Display (Linux)
         if: runner.os == 'Linux'
