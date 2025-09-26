@@ -395,7 +395,7 @@ export default function Home() {
                 <div className="mb-4 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    <p className="text-white text-sm font-medium">
+                    <p className="text-black dark:text-white text-sm font-medium">
                       No custom firmwares added, once added, your custom firmwares will appear here for flashing.
                     </p>
                   </div>
@@ -642,13 +642,12 @@ export default function Home() {
                           }
                         }}
                         disabled={isFlashing || isFlashed || !selectedPort}
-                        className={`px-4 py-2 rounded-md flex items-center transition-colors ${
-                          !selectedPort || isFlashing
+                        className={`px-4 py-2 rounded-md flex items-center transition-colors ${!selectedPort || isFlashing
                             ? 'bg-gray-400 cursor-not-allowed'
                             : isFlashed
-                            ? 'bg-green-600 cursor-not-allowed'
-                            : 'bg-green-600 hover:bg-green-700 cursor-pointer'
-                        } text-white`}
+                              ? 'bg-green-600 cursor-not-allowed'
+                              : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+                          } text-white`}
                       >
                         {isFlashing ? (
                           <>
@@ -744,14 +743,13 @@ export default function Home() {
                         console.warn(err);
                       }
                     }}
-                    disabled={isFlashing ||isFlashed}
-                    className={`px-4 py-2 rounded-md flex items-center transition-colors ${
-                      !selectedPort || isFlashing
+                    disabled={isFlashing || isFlashed}
+                    className={`px-4 py-2 rounded-md flex items-center transition-colors ${!selectedPort || isFlashing
                         ? 'bg-gray-400 cursor-not-allowed'
                         : isFlashed
-                        ? 'bg-green-600 cursor-not-allowed'
-                        : 'bg-green-600 hover:bg-green-700 cursor-pointer'
-                    } text-white`}
+                          ? 'bg-green-600 cursor-not-allowed'
+                          : 'bg-green-600 hover:bg-green-700 cursor-pointer'
+                      } text-white`}
                   >
                     {isFlashing ? (
                       <>
