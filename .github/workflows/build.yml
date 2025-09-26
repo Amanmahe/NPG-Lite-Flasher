@@ -89,7 +89,20 @@ jobs:
             libgl1-mesa-dev \
             libegl1-mesa-dev \
             libgles2-mesa-dev \
-            mesa-utils
+            mesa-utils \
+            libxapp1 \
+            libappindicator3-1 \
+            libgtk-3-0 \
+            libgtk-3-dev
+
+      - name: Install missing GTK modules (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          # Install the missing modules to prevent GTK warnings
+          sudo apt-get install -y \
+            libxapp-gtk3-module \
+            libappmenu-gtk3-module \
+            libappmenu-gtk-module
 
       - name: Install Tauri CLI
         run: npm install @tauri-apps/cli
@@ -100,10 +113,21 @@ jobs:
       - name: Setup Virtual Display for Linux
         if: runner.os == 'Linux'
         run: |
-          # Start Xvfb for headless GUI operations
+          # Start Xvfb for headless GUI operations with proper GLX support
           Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
           echo "Xvfb_PID=$!" >> $GITHUB_ENV
-          sleep 3
+          sleep 5
+
+      - name: Configure environment for headless EGL (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          # Set up environment variables to prevent EGL issues
+          echo "EGL_PLATFORM=surfaceless" >> $GITHUB_ENV
+          echo "MESA_GL_VERSION_OVERRIDE=3.3" >> $GITHUB_ENV
+          echo "MESA_GLSL_VERSION_OVERRIDE=330" >> $GITHUB_ENV
+          echo "GDK_BACKEND=x11" >> $GITHUB_ENV
+          echo "WEBKIT_DISABLE_COMPOSITING_MODE=1" >> $GITHUB_ENV
+          echo "QT_QPA_PLATFORM=offscreen" >> $GITHUB_ENV
 
       - name: Setup macOS Code Signing & Notarization
         if: runner.os == 'macOS'
@@ -139,10 +163,22 @@ jobs:
           NO_STRIP: true
           DISPLAY: :99
           LIBGL_ALWAYS_SOFTWARE: 1
+          EGL_PLATFORM: surfaceless
+          MESA_GL_VERSION_OVERRIDE: 3.3
+          MESA_GLSL_VERSION_OVERRIDE: 330
+          GDK_BACKEND: x11
+          WEBKIT_DISABLE_COMPOSITING_MODE: 1
+          QT_QPA_PLATFORM: offscreen
+          __EGL_VENDOR_LIBRARY_FILENAMES: /usr/share/glvnd/egl_vendor.d/50_mesa.json
         run: |
-          # Test if Xvfb is working
-          xdpyinfo > /dev/null 2>&1 || echo "Xvfb may not be ready, continuing anyway..."
-          npx tauri build
+          # Test Xvfb and set up offscreen rendering
+          glxinfo > /dev/null 2>&1 || echo "GLX not available, using software rendering"
+          
+          # Use offscreen rendering for the build
+          export OSMESA_HEADLESS=1
+          
+          # Build with specific flags for headless environment
+          npx tauri build --verbose
 
       - name: Build Tauri App (macOS)
         if: runner.os == 'macOS'
