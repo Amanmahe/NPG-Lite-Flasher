@@ -75,13 +75,35 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev build-essential pkg-config file desktop-file-utils
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libudev-dev \
+            build-essential \
+            pkg-config \
+            file \
+            desktop-file-utils \
+            xvfb \
+            libgl1-mesa-dev \
+            libegl1-mesa-dev \
+            libgles2-mesa-dev \
+            mesa-utils
 
       - name: Install Tauri CLI
         run: npm install @tauri-apps/cli
 
       - name: Clean npm cache
         run: npm cache clean --force
+
+      - name: Setup Virtual Display for Linux
+        if: runner.os == 'Linux'
+        run: |
+          # Start Xvfb for headless GUI operations
+          Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
+          echo "Xvfb_PID=$!" >> $GITHUB_ENV
+          sleep 3
 
       - name: Setup macOS Code Signing & Notarization
         if: runner.os == 'macOS'
@@ -112,7 +134,25 @@ jobs:
             --password "$APPLE_PASSWORD"
 
       - name: Build Tauri App
-        run: npx tauri build
+        env:
+          # Linux-specific environment variables for AppImage build
+          NO_STRIP: ${{ runner.os == 'Linux' && 'true' || 'false' }}
+          DISPLAY: ${{ runner.os == 'Linux' && ':99' || '' }}
+          LIBGL_ALWAYS_SOFTWARE: ${{ runner.os == 'Linux' && '1' || '0' }}
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            echo "Building on Linux with EGL workaround"
+            # Test if Xvfb is working
+            xdpyinfo > /dev/null 2>&1 || echo "Xvfb may not be ready, continuing anyway..."
+          fi
+          npx tauri build
+
+      - name: Stop Virtual Display (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          if [ -n "$Xvfb_PID" ]; then
+            kill $Xvfb_PID || true
+          fi
 
       - name: Extract .app from .dmg
         if: runner.os == 'macOS'
