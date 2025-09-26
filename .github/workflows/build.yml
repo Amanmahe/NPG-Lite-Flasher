@@ -106,16 +106,9 @@ jobs:
       - name: Setup Virtual Display for Linux
         if: runner.os == 'Linux'
         run: |
-          # Install mesa software rendering
-          sudo apt-get install -y mesa-utils-extra libosmesa6
-          
-          # Start Xvfb with proper GL support
-          Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
-          echo "Xvfb_PID=$!" >> $GITHUB_ENV
-          sleep 5
-          
-          # Test GLX support
-          glxinfo -display :99 > /dev/null 2>&1 && echo "GLX is working" || echo "GLX not available"
+          # Just install the necessary packages, don't start Xvfb here
+          sudo apt-get install -y mesa-utils-extra libosmesa6 xvfb
+          echo "Xvfb will be started in the build step"
 
       - name: Configure environment for headless EGL (Linux)
         if: runner.os == 'Linux'
@@ -171,32 +164,42 @@ jobs:
           # Confirm NO_STRIP is set
           echo "NO_STRIP environment variable value: $NO_STRIP"
           
-          # Check if Xvfb is already running and use it
-          if [ -f /tmp/.X99-lock ]; then
-              echo "Xvfb is already running on display 99"
-              # Test if the existing Xvfb is working
-              if xdpyinfo -display :99 >/dev/null 2>&1; then
-                  echo "Existing Xvfb is working"
-              else
-                  echo "Existing Xvfb is not responding, cleaning up and starting new one"
-                  rm -f /tmp/.X99-lock
-                  Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
-                  XVFB_PID=$!
-                  sleep 3
-              fi
-          else
-              echo "Starting new Xvfb instance"
-              Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
-              XVFB_PID=$!
-              sleep 3
-          fi
+          # Clean up any existing Xvfb processes and locks
+          echo "Cleaning up any existing Xvfb processes..."
+          pkill -f "Xvfb :99" || true
+          sleep 2
+          rm -f /tmp/.X99-lock
+          rm -f /tmp/.X11-unix/X99
+          
+          # Start fresh Xvfb instance
+          echo "Starting new Xvfb instance on display :99"
+          Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
+          XVFB_PID=$!
+          sleep 5
           
           # Test Xvfb properly
           if xdpyinfo -display :99 >/dev/null 2>&1; then
               echo "Xvfb is working on display :99"
           else
-              echo "Xvfb failed to start or connect"
-              exit 1
+              echo "Xvfb failed to start, attempting alternative display..."
+              # Try a different display number
+              pkill -f "Xvfb :99" || true
+              sleep 2
+              rm -f /tmp/.X99-lock
+              rm -f /tmp/.X11-unix/X99
+              
+              # Try display :100
+              Xvfb :100 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
+              XVFB_PID=$!
+              export DISPLAY=:100
+              sleep 5
+              
+              if xdpyinfo -display :100 >/dev/null 2>&1; then
+                  echo "Xvfb is working on display :100"
+              else
+                  echo "Xvfb completely failed to start"
+                  exit 1
+              fi
           fi
           
           # Set up software rendering properly
@@ -218,7 +221,7 @@ jobs:
           echo "Starting Tauri build..."
           npx tauri build --verbose
           
-          # Only kill Xvfb if we started it in this step
+          # Clean up Xvfb
           if [ -n "$XVFB_PID" ]; then
               kill $XVFB_PID || true
           fi
