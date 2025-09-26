@@ -171,17 +171,31 @@ jobs:
           # Confirm NO_STRIP is set
           echo "NO_STRIP environment variable value: $NO_STRIP"
           
-          # Better Xvfb setup with proper GLX support
-          export DISPLAY=:99
-          Xvfb $DISPLAY -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
-          XVFB_PID=$!
-          sleep 3
+          # Check if Xvfb is already running and use it
+          if [ -f /tmp/.X99-lock ]; then
+              echo "Xvfb is already running on display 99"
+              # Test if the existing Xvfb is working
+              if xdpyinfo -display :99 >/dev/null 2>&1; then
+                  echo "Existing Xvfb is working"
+              else
+                  echo "Existing Xvfb is not responding, cleaning up and starting new one"
+                  rm -f /tmp/.X99-lock
+                  Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
+                  XVFB_PID=$!
+                  sleep 3
+              fi
+          else
+              echo "Starting new Xvfb instance"
+              Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
+              XVFB_PID=$!
+              sleep 3
+          fi
           
           # Test Xvfb properly
-          if xdpyinfo >/dev/null 2>&1; then
-              echo "Xvfb is working"
+          if xdpyinfo -display :99 >/dev/null 2>&1; then
+              echo "Xvfb is working on display :99"
           else
-              echo "Xvfb failed to start"
+              echo "Xvfb failed to start or connect"
               exit 1
           fi
           
@@ -204,8 +218,10 @@ jobs:
           echo "Starting Tauri build..."
           npx tauri build --verbose
           
-          # Clean up Xvfb
-          kill $XVFB_PID || true
+          # Only kill Xvfb if we started it in this step
+          if [ -n "$XVFB_PID" ]; then
+              kill $XVFB_PID || true
+          fi
 
       - name: Build Tauri App (macOS)
         if: runner.os == 'macOS'
