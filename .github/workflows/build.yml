@@ -75,11 +75,16 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          # Check available webkit versions first
-          echo "Available webkit2gtk versions:"
-          apt-cache policy libwebkit2gtk-4.1-dev
-          # Install the older compatible version (2.36.0-2ubuntu1)
+          
+          # Remove any existing webkit packages to avoid conflicts
+          sudo apt-get remove -y libwebkit2gtk-4.1-0 gir1.2-webkit2-4.1 libjavascriptcoregtk-4.1-0 || true
+          
+          # Install specific versions
           sudo apt-get install -y \
+            libjavascriptcoregtk-4.1-0=2.36.0-2ubuntu1 \
+            libwebkit2gtk-4.1-0=2.36.0-2ubuntu1 \
+            gir1.2-webkit2-4.1=2.36.0-2ubuntu1 \
+            libjavascriptcoregtk-4.1-dev=2.36.0-2ubuntu1 \
             libwebkit2gtk-4.1-dev=2.36.0-2ubuntu1 \
             libappindicator3-dev \
             librsvg2-dev \
@@ -94,9 +99,7 @@ jobs:
             libegl1-mesa-dev \
             libgles2-mesa-dev \
             mesa-utils
-          # Prevent webkit from being upgraded during build
-          sudo apt-mark hold libwebkit2gtk-4.1-dev
-          
+            
       - name: Install Tauri CLI
         run: npm install @tauri-apps/cli
 
