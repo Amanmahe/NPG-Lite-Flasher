@@ -76,16 +76,26 @@ jobs:
         run: |
           sudo apt-get update
           
-          # Remove any existing webkit packages to avoid conflicts
-          sudo apt-get remove -y libwebkit2gtk-4.1-0 gir1.2-webkit2-4.1 libjavascriptcoregtk-4.1-0 || true
-          
-          # Install specific versions
+          # Try WebKitGTK 4.0 first (more stable)
           sudo apt-get install -y \
-            libjavascriptcoregtk-4.1-0=2.36.0-2ubuntu1 \
-            libwebkit2gtk-4.1-0=2.36.0-2ubuntu1 \
-            gir1.2-webkit2-4.1=2.36.0-2ubuntu1 \
-            libjavascriptcoregtk-4.1-dev=2.36.0-2ubuntu1 \
-            libwebkit2gtk-4.1-dev=2.36.0-2ubuntu1 \
+            libwebkit2gtk-4.0-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libudev-dev \
+            build-essential \
+            pkg-config \
+            file \
+            desktop-file-utils \
+            xvfb \
+            libgl1-mesa-dev \
+            libegl1-mesa-dev \
+            libgles2-mesa-dev \
+            mesa-utils || \
+          
+          # Fallback to WebKitGTK 4.1 if 4.0 fails
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
@@ -99,7 +109,7 @@ jobs:
             libegl1-mesa-dev \
             libgles2-mesa-dev \
             mesa-utils
-            
+
       - name: Install Tauri CLI
         run: npm install @tauri-apps/cli
 
