@@ -1,4 +1,4 @@
-name: Build and Release NPG Lite Flasher App
+name: Build and Release NPG Lite Flasher  App
 
 on:
   push:
@@ -16,18 +16,18 @@ jobs:
         id: get_version
         run: |
           version="v$(jq -r '.version' package.json)"
-          echo "version=$version" >> $GITHUB_OUTPUT
-
+          echo "::set-output name=version::$version"
       - name: Check if Tag Exists
         id: check_tag
         run: |
           version="${{ steps.get_version.outputs.version }}"
           if git rev-parse "$version" >/dev/null 2>&1; then
+            echo "Tag $version already exists."
             echo "tag_exists=true" >> $GITHUB_OUTPUT
           else
+            echo "Tag $version does not exist."
             echo "tag_exists=false" >> $GITHUB_OUTPUT
           fi
-
       - name: Create Tag
         if: steps.check_tag.outputs.tag_exists == 'false'
         run: |
@@ -36,7 +36,6 @@ jobs:
           git config user.email "github-actions@github.com"
           git tag -a "$version" -m "Release version $version"
           git push origin "$version"
-
   build:
     needs: check-version-and-tag
     runs-on: ${{ matrix.os }}
@@ -56,18 +55,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20  
 
       - name: Install macOS canvas dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install pkg-config cairo pango libpng jpeg giflib librsvg
-
+            brew install pkg-config cairo pango libpng jpeg giflib librsvg
+                  
+          
       - name: Install Dependencies
         run: |
           npm install
           npm install tailwindcss-animate
-
       - name: Run npm audit
         run: npm audit --audit-level=high
 
@@ -75,54 +74,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          
-          # Try WebKitGTK 4.0 first (more stable)
-          sudo apt-get install -y \
-            libwebkit2gtk-4.0-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libudev-dev \
-            build-essential \
-            pkg-config \
-            file \
-            desktop-file-utils \
-            xvfb \
-            libgl1-mesa-dev \
-            libegl1-mesa-dev \
-            libgles2-mesa-dev \
-            mesa-utils || \
-          
-          # Fallback to WebKitGTK 4.1 if 4.0 fails
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libudev-dev \
-            build-essential \
-            pkg-config \
-            file \
-            desktop-file-utils \
-            xvfb \
-            libgl1-mesa-dev \
-            libegl1-mesa-dev \
-            libgles2-mesa-dev \
-            mesa-utils
-
-      - name: Install Tauri CLI
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev build-essential pkg-config
+      - name: Install Tauri CLI (locally)
         run: npm install @tauri-apps/cli
 
       - name: Clean npm cache
         run: npm cache clean --force
-
-      - name: Setup Virtual Display for Linux
-        if: runner.os == 'Linux'
-        run: |
-          # Start Xvfb for headless GUI operations
-          Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
-          echo "Xvfb_PID=$!" >> $GITHUB_ENV
-          sleep 3
 
       - name: Setup macOS Code Signing & Notarization
         if: runner.os == 'macOS'
@@ -140,7 +97,6 @@ jobs:
           security create-keychain -p "" build.keychain-db
           security default-keychain -s build.keychain-db
           security unlock-keychain -p "" build.keychain-db
-          security set-keychain-settings -lut 7200 build.keychain-db
 
           security import developer_app.p12 -k build.keychain-db -P "$CERT_PASSWORD" -T /usr/bin/codesign
           security import developer_installer.p12 -k build.keychain-db -P "$CERT_PASSWORD" -T /usr/bin/productsign
@@ -148,39 +104,12 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain-db
 
           xcrun notarytool store-credentials "MAC_PASSWORD" \
-            --apple-id "$APPLE_ID" \
-            --team-id "$TEAM_ID" \
-            --password "$APPLE_PASSWORD"
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --team-id "${{ secrets.TEAM_ID }}" \
+            --password "${{ secrets.APP_PASSWORD }}"
 
-      - name: Build Tauri App (Linux)
-        if: runner.os == 'Linux'
-        env:
-          NO_STRIP: true
-          DISPLAY: :99
-          LIBGL_ALWAYS_SOFTWARE: 1
-          # Force software rendering to avoid GPU driver issues
-          GALLIUM_DRIVER: llvmpipe
-        run: |
-          # Test if Xvfb is working
-          xdpyinfo > /dev/null 2>&1 || echo "Xvfb may not be ready, continuing anyway..."
-          export NO_STRIP=true
-          # Add additional flags for Linux build
-          npx tauri build --verbose
-
-      - name: Build Tauri App (macOS)
-        if: runner.os == 'macOS'
+      - name: Build Tauri App
         run: npx tauri build
-
-      - name: Build Tauri App (Windows)
-        if: runner.os == 'Windows'
-        run: npx tauri build
-
-      - name: Stop Virtual Display (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          if [ -n "$Xvfb_PID" ]; then
-            kill $Xvfb_PID || true
-          fi
 
       - name: Extract .app from .dmg
         if: runner.os == 'macOS'
@@ -188,33 +117,22 @@ jobs:
           dmg_path=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -n 1)
           echo "Mounting $dmg_path"
           hdiutil attach "$dmg_path" -mountpoint /Volumes/MyApp
-          mkdir -p SignedApp
+          mkdir -p SignedApp  # Create SignedApp directory if it doesn't exist
           cp -R /Volumes/MyApp/*.app ./SignedApp
           hdiutil detach /Volumes/MyApp
-
-      - name: List code signing identities
-        if: runner.os == 'macOS'
-        run: |
-          security find-identity -v -p codesigning
-
-      - name: Verify app bundle
-        if: runner.os == 'macOS'
-        run: |
-          codesign --display --verbose=4 SignedApp/*.app
-
       - name: Sign .app bundle
         if: runner.os == 'macOS'
         env:
           MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
         run: |
-          codesign --force --verbose --options runtime --timestamp \
-            --sign "$MACOS_SIGN_IDENTITY" \
+          codesign --deep --force --verbose --options runtime \
+            --sign "${MACOS_SIGN_IDENTITY}" \
             SignedApp/*.app
-          codesign --verify --strict --verbose=2 SignedApp/*.app
-
+          codesign --verify --deep --strict --verbose=2 SignedApp/*.app
       - name: Verify SignedApp directory contents
         if: runner.os == 'macOS'
-        run: ls -l SignedApp
+        run: |
+          ls -l SignedApp
 
       - name: Rebuild .dmg with signed .app
         if: runner.os == 'macOS'
@@ -222,7 +140,6 @@ jobs:
           npm install -g create-dmg
           mkdir -p rebuilt-dmg
           npx create-dmg SignedApp/*.app rebuilt-dmg --overwrite
-
       - name: Notarize macOS App
         if: runner.os == 'macOS'
         env:
@@ -231,22 +148,24 @@ jobs:
           TEAM_ID: ${{ secrets.TEAM_ID }}
         run: |
           dmg_path=$(find rebuilt-dmg -name "*.dmg" | head -n 1)
-          xcrun notarytool submit "$dmg_path" \
-            --keychain-profile "MAC_PASSWORD" \
-            --wait
+          echo "Submitting for notarization: $dmg_path"
+           xcrun notarytool submit "$dmg_path" \
+          --keychain-profile "MAC_PASSWORD" \
+          --wait
+
 
       - name: Staple Notarization Ticket
         if: runner.os == 'macOS'
         run: |
           dmg_path=$(find rebuilt-dmg -name "*.dmg" | head -n 1)
           xcrun stapler staple "$dmg_path"
-
       - name: Upload Artifact for macOS
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: tauri-app-macos
           path: rebuilt-dmg/*.dmg
+
 
       - name: Upload Artifact for Windows
         if: runner.os == 'Windows'
@@ -269,13 +188,6 @@ jobs:
           name: tauri-app-linux-rpm
           path: src-tauri/target/release/bundle/rpm/*.rpm
 
-      - name: Upload Artifact for Linux (AppImage)
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: tauri-app-linux-appimage
-          path: src-tauri/target/release/bundle/appimage/*.AppImage
-
   release:
     needs: [build, check-version-and-tag]
     runs-on: ubuntu-latest
@@ -291,11 +203,12 @@ jobs:
         run: |
           version="v$(jq -r '.version' package.json)"
           echo "version=$version" >> $GITHUB_OUTPUT
+          echo "Verifying tag $version"
           if ! git tag -l | grep -q "$version"; then
             echo "Error: Tag $version not found locally."
             exit 1
           fi
-
+      # Download platform-specific artifacts
       - name: Download macOS Artifact
         uses: actions/download-artifact@v4
         with:
@@ -320,13 +233,8 @@ jobs:
           name: tauri-app-linux-rpm
           path: src-tauri/target/release/bundle/rpm
 
-      - name: Download Linux Artifact (AppImage)
-        uses: actions/download-artifact@v4
-        with:
-          name: tauri-app-linux-appimage
-          path: src-tauri/target/release/bundle/appimage
-
-      - name: Create GitHub Release
+      # Create GitHub Release with only artifacts
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "${{ steps.verified_version.outputs.version }}"
@@ -335,7 +243,6 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/rpm/*.rpm
-            src-tauri/target/release/bundle/appimage/*.AppImage
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
