@@ -75,8 +75,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          # Check available webkit versions first
+          echo "Available webkit2gtk versions:"
+          apt-cache policy libwebkit2gtk-4.1-dev
+          # Install pinned version to avoid EGL issues
           sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
+            libwebkit2gtk-4.1-dev=2.36.1-0ubuntu1 \
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
@@ -90,6 +94,8 @@ jobs:
             libegl1-mesa-dev \
             libgles2-mesa-dev \
             mesa-utils
+          # Prevent webkit from being upgraded during build
+          sudo apt-mark hold libwebkit2gtk-4.1-dev
 
       - name: Install Tauri CLI
         run: npm install @tauri-apps/cli
@@ -139,11 +145,14 @@ jobs:
           NO_STRIP: true
           DISPLAY: :99
           LIBGL_ALWAYS_SOFTWARE: 1
+          # Force software rendering to avoid GPU driver issues
+          GALLIUM_DRIVER: llvmpipe
         run: |
           # Test if Xvfb is working
           xdpyinfo > /dev/null 2>&1 || echo "Xvfb may not be ready, continuing anyway..."
           export NO_STRIP=true
-          npx tauri build
+          # Add additional flags for Linux build
+          npx tauri build --verbose
 
       - name: Build Tauri App (macOS)
         if: runner.os == 'macOS'
